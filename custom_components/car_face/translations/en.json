@@ -1,0 +1,87 @@
+{
+  "title": "Car&Face",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Car&Face",
+        "description": "React to recognition: pick opening sensors (Car&Face MQTT sensors with device class 'opening'), a target device and the hold time.",
+        "data": {
+          "name": "Name",
+          "enabled": "Enabled",
+          "trigger_type": "Trigger type",
+          "on_enabled": "ON: block enabled",
+          "on_sensors": "Opening sensors (MQTT)",
+          "off_enabled": "OFF: block enabled",
+          "off_sensors": "OFF: opening sensors",
+          "use_illuminance": "Illuminance: block enabled",
+          "illuminance_sensor": "Illuminance: sensor",
+          "off_delay_min": "Turn-off delay, min (0 = pulse)",
+          "target_entity": "Target device (relay/gate/light)"
+        },
+        "data_description": {
+          "trigger_type": "Reference field: opening (barrier, gate, door), motion or any sensor.",
+          "on_sensors": "When any selected opening sensor triggers, the target turns on (opens).",
+          "off_sensors": "Optional: sensors used to start the turn-off delay.",
+          "use_illuminance": "Optional: allow turning on only when illuminance is below the threshold.",
+          "off_delay_min": "0 = short pulse (on then immediately off) like a barrier button. Above 0 = keep on for that many minutes.",
+          "target_entity": "Barrier relay, gate relay, gate cover or light (light / switch)."
+        }
+      }
+    },
+    "error": {
+      "need_on_sensors": "Select at least one opening sensor for the ON block.",
+      "missing_target_entity": "Select the target device.",
+      "missing_illuminance_sensor": "Illuminance block is enabled but no sensor is selected.",
+      "internal_error": "Internal error, check the logs."
+    },
+    "abort": {
+      "already_configured": "This entry is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Settings",
+        "description": "Edit this entry: opening sensors, target device, delay, illuminance, schedule.",
+        "data": {
+          "name": "Name",
+          "enabled": "Enabled",
+          "trigger_type": "Trigger type",
+          "on_enabled": "ON: block enabled",
+          "on_sensors": "Opening sensors (MQTT)",
+          "off_enabled": "OFF: block enabled",
+          "off_sensors": "OFF: opening sensors",
+          "use_illuminance": "Illuminance: block enabled",
+          "illuminance_sensor": "Illuminance: sensor",
+          "off_delay_min": "Turn-off delay, min (0 = pulse)",
+          "target_entity": "Target device (relay/gate/light)",
+          "reset_options": "Reset entry settings"
+        },
+        "data_description": {
+          "trigger_type": "Reference field: opening (barrier, gate, door), motion or any sensor.",
+          "on_sensors": "When any selected opening sensor triggers, the target turns on (opens).",
+          "off_sensors": "Optional: sensors used to start the turn-off delay.",
+          "use_illuminance": "Optional: allow turning on only when illuminance is below the threshold.",
+          "off_delay_min": "0 = short pulse (on then immediately off) like a barrier button. Above 0 = keep on for that many minutes.",
+          "target_entity": "Barrier relay, gate relay, gate cover or light (light / switch).",
+          "reset_options": "Removes saved options and reloads the entry."
+        }
+      }
+    },
+    "error": {
+      "need_on_sensors": "Select at least one opening sensor for the ON block.",
+      "missing_target_entity": "Select the target device.",
+      "missing_illuminance_sensor": "Illuminance block is enabled but no sensor is selected.",
+      "internal_error": "Internal error, check the logs."
+    }
+  },
+  "selector": {
+    "trigger_type": {
+      "options": {
+        "motion": "Motion",
+        "opening": "Opening (barrier/gate/door)",
+        "any": "Any sensor"
+      }
+    }
+  }
+}
