@@ -36,6 +36,7 @@ from .const import (
     CONF_OFF_SENSORS,
     CONF_ON_ENABLED,
     CONF_ON_SENSORS,
+    CONF_PULSE_SEC,
     CONF_TARGET_ENTITY,
     CONF_TRIGGER_SENSORS,
     CONF_USE_ILLUMINANCE,
@@ -416,7 +417,14 @@ async def async_reconcile(
         _emit_update(runner)
         return
 
-    if runner.off_handle and active_on and not active_off:
+    try:
+        _pulse_sec = int(cfg.get(CONF_PULSE_SEC) or 0)
+    except Exception:
+        _pulse_sec = 0
+    if _pulse_sec > 0 and not active_on:
+        # сенсор отпущен — снимаем отметку «импульс уже выдан» для следующего проезда
+        runner.data["pulse_done"] = False
+    if runner.off_handle and active_on and not active_off and _pulse_sec <= 0:
         runner.off_handle()
         runner.off_handle = None
         runner.data[ATTR_NEXT_OFF_AT] = None
@@ -443,7 +451,26 @@ async def async_reconcile(
                 runner.data[ATTR_LAST_REASON] = f"{reason}:lux>{limit}"
                 _emit_update(runner)
                 return
+        if _pulse_sec > 0 and runner.data.get("pulse_done"):
+            # импульс по этому срабатыванию уже выдан — ждём, пока сенсор отпустят
+            _emit_update(runner)
+            return
         await _turn_on_target(runner, target_entity, lux, reason=f"{reason}:on_sensor")
+        if _pulse_sec > 0:
+            # режим импульса: принудительно выключаем через pulse_sec секунд,
+            # независимо от того, что сенсор остаётся активным
+            runner.data["pulse_done"] = True
+            if runner.off_handle:
+                runner.off_handle()
+                runner.off_handle = None
+
+            @callback
+            def _pulse_off(_now) -> None:
+                runner.off_handle = None
+                runner.hass.async_create_task(_turn_off_now(runner, target_entity, "pulse"))
+                _emit_update(runner)
+
+            runner.off_handle = async_call_later(runner.hass, _pulse_sec, _pulse_off)
         _emit_update(runner)
         return
 

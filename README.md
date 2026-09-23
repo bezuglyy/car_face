@@ -82,6 +82,19 @@ device, RU/EN labels, Car&Face branding, plus 4 bug fixes (settings overwritten 
 crashing) and correct `AbortFlow` handling.
 
 ---
+## Изменения 1.2.0 (24.09.2026)
+- **Режим «Импульс, сек»** (`pulse_sec`): реле включается и **выключается через N секунд**, даже если сенсор
+  открытия остаётся активным — как кнопка шлагбаума. `0` — прежнее поведение (держать, пока сенсор активен).
+  Повторное срабатывание по тому же событию не происходит, пока сенсор не отпустят.
+- Поле «Импульс, сек» в форме добавления и в «Настройках» (0…1200, шаг 1).
+- HA-тесты: 13 проверок (добавлены импульс, `pulse_sec=0` и наличие поля).
+
+### Changes 1.2.0
+- **Pulse mode** (`pulse_sec`): the relay turns on and off after N seconds even if the opening sensor stays active
+  (barrier button behaviour). `0` = previous behaviour (hold while the sensor is active). No re-trigger while the
+  sensor remains active. New field in the config and options flows; 13 HA tests.
+
+---
 **Автор / Author:**
 ![Bezuglyj E.N.](logo-bezuglyj.png)
 ## License / Лицензия

@@ -17,6 +17,7 @@ from .const import (
     CONF_OFF_SENSORS,
     CONF_ON_ENABLED,
     CONF_ON_SENSORS,
+    CONF_PULSE_SEC,
     CONF_RESET_OPTIONS,
     CONF_TARGET_ENTITY,
     CONF_TRIGGER_SENSORS,
@@ -28,6 +29,7 @@ from .const import (
     DEFAULT_OFF_DELAY_MIN,
     DEFAULT_OFF_ENABLED,
     DEFAULT_ON_ENABLED,
+    DEFAULT_PULSE_SEC,
     DEFAULT_TRIGGER_TYPE,
     DEFAULT_USE_ILLUMINANCE,
     DOMAIN,
@@ -113,6 +115,7 @@ def normalize_entry_payload(data: dict | None) -> dict:
         CTRL_OFF_DELAY_MIN: _as_int(
             data.get(CTRL_OFF_DELAY_MIN), DEFAULT_OFF_DELAY_MIN
         ),
+        CONF_PULSE_SEC: _as_int(data.get(CONF_PULSE_SEC), DEFAULT_PULSE_SEC),
     }
 
 
@@ -211,6 +214,13 @@ def build_schema(data: dict, *, include_reset: bool) -> vol.Schema:
             if data[CONF_ILLUMINANCE_SENSOR]
             else vol.Optional(CONF_ILLUMINANCE_SENSOR)
         ): _single_sensor_selector(),
+        vol.Optional(
+            CONF_PULSE_SEC, default=data[CONF_PULSE_SEC]
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0, max=1200, step=1, mode=selector.NumberSelectorMode.BOX
+            )
+        ),
         vol.Optional(
             CTRL_OFF_DELAY_MIN, default=data[CTRL_OFF_DELAY_MIN]
         ): selector.NumberSelector(

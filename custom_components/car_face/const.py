@@ -17,6 +17,7 @@ CONF_USE_ILLUMINANCE = "use_illuminance"
 CONF_ILLUMINANCE_SENSOR = "illuminance_sensor"
 CONF_TARGET_ENTITY = "target_entity"
 CONF_RESET_OPTIONS = "reset_options"
+CONF_PULSE_SEC = "pulse_sec"
 
 # legacy keys
 CONF_TRIGGER_SENSORS = "trigger_sensors"
@@ -39,6 +40,7 @@ DEFAULT_OFF_ENABLED = True
 DEFAULT_USE_ILLUMINANCE = False
 DEFAULT_TRIGGER_TYPE = TRIGGER_OPENING
 DEFAULT_OFF_DELAY_MIN = 1
+DEFAULT_PULSE_SEC = 0            # 0 = держать, пока активен сенсор; >0 = импульс, секунд
 DEFAULT_MIN_LUX = 0.0
 DEFAULT_MAX_LUX = 200.0
 DEFAULT_MIN_BRIGHTNESS_PCT = 10.0
@@ -117,7 +119,7 @@ ATTR_NEXT_OFF_AT = "next_off_at"
 
 INTEGRATION_MANUFACTURER = "Bezuglyy"
 INTEGRATION_MODEL = "Car&Face"
-INTEGRATION_SW_VERSION = "1.1.0"
+INTEGRATION_SW_VERSION = "1.2.0"
 
 DIAG_ENTITY_CATEGORY = EntityCategory.DIAGNOSTIC
 

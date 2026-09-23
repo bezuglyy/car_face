@@ -16,7 +16,8 @@
           "use_illuminance": "Illuminance: block enabled",
           "illuminance_sensor": "Illuminance: sensor",
           "off_delay_min": "Turn-off delay, min (0 = pulse)",
-          "target_entity": "Target device (relay/gate/light)"
+          "target_entity": "Target device (relay/gate/light)",
+          "pulse_sec": "Pulse, sec (0 = hold while sensor active)"
         },
         "data_description": {
           "trigger_type": "Reference field: opening (barrier, gate, door), motion or any sensor.",
@@ -24,7 +25,8 @@
           "off_sensors": "Optional: sensors used to start the turn-off delay.",
           "use_illuminance": "Optional: allow turning on only when illuminance is below the threshold.",
           "off_delay_min": "0 = short pulse (on then immediately off) like a barrier button. Above 0 = keep on for that many minutes.",
-          "target_entity": "Barrier relay, gate relay, gate cover or light (light / switch)."
+          "target_entity": "Barrier relay, gate relay, gate cover or light (light / switch).",
+          "pulse_sec": "Short pulse for a barrier: the relay turns on and off after the given number of seconds even if the sensor stays active. 0 = normal mode (hold while sensor active, then the delay)."
         }
       }
     },
@@ -55,7 +57,8 @@
           "illuminance_sensor": "Illuminance: sensor",
           "off_delay_min": "Turn-off delay, min (0 = pulse)",
           "target_entity": "Target device (relay/gate/light)",
-          "reset_options": "Reset entry settings"
+          "reset_options": "Reset entry settings",
+          "pulse_sec": "Pulse, sec (0 = hold while sensor active)"
         },
         "data_description": {
           "trigger_type": "Reference field: opening (barrier, gate, door), motion or any sensor.",
@@ -64,7 +67,8 @@
           "use_illuminance": "Optional: allow turning on only when illuminance is below the threshold.",
           "off_delay_min": "0 = short pulse (on then immediately off) like a barrier button. Above 0 = keep on for that many minutes.",
           "target_entity": "Barrier relay, gate relay, gate cover or light (light / switch).",
-          "reset_options": "Removes saved options and reloads the entry."
+          "reset_options": "Removes saved options and reloads the entry.",
+          "pulse_sec": "Short pulse for a barrier: the relay turns on and off after the given number of seconds even if the sensor stays active. 0 = normal mode (hold while sensor active, then the delay)."
         }
       }
     },
