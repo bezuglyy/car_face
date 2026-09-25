@@ -12,10 +12,11 @@ from .const import (
     ATTR_ACTIVE_ON_SENSORS,
     ATTR_LAST_ACTION,
     ATTR_LAST_ACTION_AT,
-    ATTR_LAST_LUX,
+    ATTR_LAST_BUTTONS,
     ATTR_LAST_REASON,
     ATTR_NEXT_OFF_AT,
     ATTR_STATUS,
+    ATTR_TARGET_BUTTONS,
     ATTR_TARGET_STATE,
     DOMAIN,
     build_device_info,
@@ -62,7 +63,7 @@ class ScenarioStateBinarySensor(BinarySensorEntity):
             return False
         return bool(runner.data.get(ATTR_ACTIVE_ON_SENSORS)) or runner.data.get(
             ATTR_STATUS
-        ) in {"on", "delayed_off"}
+        ) in {"on", "delayed_off", "button_pressed"}
 
     @property
     def extra_state_attributes(self):
@@ -74,7 +75,8 @@ class ScenarioStateBinarySensor(BinarySensorEntity):
             ATTR_LAST_REASON: runner.data.get(ATTR_LAST_REASON),
             ATTR_LAST_ACTION: runner.data.get(ATTR_LAST_ACTION),
             ATTR_LAST_ACTION_AT: runner.data.get(ATTR_LAST_ACTION_AT),
-            ATTR_LAST_LUX: runner.data.get(ATTR_LAST_LUX),
+            ATTR_TARGET_BUTTONS: runner.data.get(ATTR_TARGET_BUTTONS),
+            ATTR_LAST_BUTTONS: runner.data.get(ATTR_LAST_BUTTONS),
             ATTR_ACTIVE_ON_SENSORS: runner.data.get(ATTR_ACTIVE_ON_SENSORS),
             ATTR_ACTIVE_OFF_SENSORS: runner.data.get(ATTR_ACTIVE_OFF_SENSORS),
             ATTR_TARGET_STATE: runner.data.get(ATTR_TARGET_STATE),
