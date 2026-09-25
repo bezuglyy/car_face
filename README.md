@@ -12,13 +12,14 @@
 | Тип | custom integration |
 
 ## Описание
-Реакция на распознавание **Car&Face**: по **сенсорам открытия** (MQTT-сенсоры Car&Face, `device_class: opening`) интеграция включает (открывает) выбранное устройство — реле шлагбаума, ворота или свет — с учётом расписания и (опционально) освещённости.
+Реакция на распознавание **Car&Face**: по **сенсорам открытия** (MQTT-сенсоры Car&Face, `device_class: opening`) интеграция включает (открывает) выбранное устройство — реле шлагбаума, ворота или свет — **и/или нажимает выбранные кнопки** (например «открыть доступ» контроллера Болид С2000-2), с учётом расписания.
 
 ### Возможности
 - **Сенсоры открытия** — выбор нескольких сенсоров (`binary_sensor`, класс `opening` / `garage_door` / `door` / `window`)
 - **Исполняемое устройство** — реле шлагбаума/ворот (`switch`) или свет (`light`)
 - **Импульс** — пауза 0: включить и сразу выключить (как кнопка шлагбаума); больше 0 — держать N минут
-- **Расписание** — время начала/окончания, блок «только при низкой освещённости»
+- **Расписание** — время начала/окончания
+- **Кнопки-действия** — нажимаются при срабатывании (напр. кнопка «открыть доступ» Болид С2000-2 из интеграции SecurARM Sensor)
 - **Несколько записей на одно устройство** — например Post2 / Post3 / Post5 на одно реле
 - **Редактирование** — любая запись меняется через «Настройки» (Options)
 - **Диагностика** — статус, последнее действие и его время, причина решения, запланированное выключение, статус сценария
@@ -39,6 +40,13 @@
 | Пауза до выключения, мин | `0` (импульс) |
 
 ---
+## Изменения 1.3.0 (25.09.2026)
+
+- **Кнопки-действия** (`target_buttons`): мультивыбор `button.*` — кнопки нажимаются один раз на срабатывание (по фронту сенсора). Пример: `button.skif_pku_1_vkhod_otkryt_dostup` («открыть доступ» контроллера Болид С2000-2). Действуют **вместе** с исполняемым устройством; устройство теперь необязательно, если выбраны кнопки.
+- **Убрана «Освещённость»**: поля «Освещённость: блок включен»/«датчик», сущности порогов/минимума/максимума освещённости, яркости и «Цвет» удалены из интеграции (платформа `select` больше не используется). Осталась «Задержка выключения».
+- Миграция записи **v8 → v9**: из data/options убираются поля освещённости, добавляется `target_buttons`; исполняемое устройство и сенсоры сохраняются.
+- Диагностический сенсор: «Текущая освещённость» заменён на **«Нажатые кнопки»**.
+
 ## Изменения 1.1.0 (23.09.2026)
 - Первый выпуск Car&Face на базе логики `motion_control` (**сама логика не менялась**).
 - Селектор сенсоров ограничен **сенсорами открытия** (`binary_sensor` + `device_class: opening/garage_door/door/window`).
@@ -57,13 +65,13 @@
 
 ---
 ## Description
-Home Assistant custom integration for **Car&Face**: turns on (opens) a target device — barrier relay, gate or light — based on **opening sensors** (Car&Face MQTT sensors, `device_class: opening`), with optional schedule and illuminance condition.
+Home Assistant custom integration for **Car&Face**: turns on (opens) a target device — barrier relay, gate or light — and/or presses selected buttons (e.g. a Bolid C2000-2 «open access» button) based on **opening sensors** (Car&Face MQTT sensors, `device_class: opening`), with an optional schedule.
 
 ### Features
 - Multiple **opening sensors** (`binary_sensor`, class `opening` / `garage_door` / `door` / `window`)
 - Target device: relay/gate (`switch`) or light (`light`)
 - Pulse mode (delay 0) or hold for N minutes
-- Schedule (start/end time) and optional illuminance threshold
+- Schedule (start/end time) and a button-action list
 - Several entries for the same device (Post2 / Post3 / Post5 → one relay)
 - Edit any entry via Options; diagnostics sensors and scenario status
 - Russian and English localization, Car&Face brand icons
@@ -80,19 +88,6 @@ First release built on `motion_control` logic (logic itself unchanged): opening-
 device, RU/EN labels, Car&Face branding, plus 4 bug fixes (settings overwritten by defaults when `options` was empty;
 `datetime.now(config.time_zone)` `TypeError`; options dialog failing on HA 2024.11+; timestamp diagnostic sensors
 crashing) and correct `AbortFlow` handling.
-
----
-## Изменения 1.2.0 (24.09.2026)
-- **Режим «Импульс, сек»** (`pulse_sec`): реле включается и **выключается через N секунд**, даже если сенсор
-  открытия остаётся активным — как кнопка шлагбаума. `0` — прежнее поведение (держать, пока сенсор активен).
-  Повторное срабатывание по тому же событию не происходит, пока сенсор не отпустят.
-- Поле «Импульс, сек» в форме добавления и в «Настройках» (0…1200, шаг 1).
-- HA-тесты: 13 проверок (добавлены импульс, `pulse_sec=0` и наличие поля).
-
-### Changes 1.2.0
-- **Pulse mode** (`pulse_sec`): the relay turns on and off after N seconds even if the opening sensor stays active
-  (barrier button behaviour). `0` = previous behaviour (hold while the sensor is active). No re-trigger while the
-  sensor remains active. New field in the config and options flows; 13 HA tests.
 
 ---
 **Автор / Author:**
