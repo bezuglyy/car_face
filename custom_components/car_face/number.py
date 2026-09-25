@@ -5,17 +5,7 @@ from homeassistant.config_entries import ConfigEntry
 
 from . import async_set_ctrl_value, get_runner
 from .const import (
-    CTRL_ILLUMINANCE_BLOCK_LUX,
-    CTRL_MAX_BRIGHTNESS_PCT,
-    CTRL_MAX_LUX,
-    CTRL_MIN_BRIGHTNESS_PCT,
-    CTRL_MIN_LUX,
     CTRL_OFF_DELAY_MIN,
-    DEFAULT_ILLUMINANCE_BLOCK_LUX,
-    DEFAULT_MAX_BRIGHTNESS_PCT,
-    DEFAULT_MAX_LUX,
-    DEFAULT_MIN_BRIGHTNESS_PCT,
-    DEFAULT_MIN_LUX,
     DEFAULT_OFF_DELAY_MIN,
     DOMAIN,
 )
@@ -25,12 +15,18 @@ from .entity_base import CarFaceRestoreBase
 async def async_setup_entry(hass, entry: ConfigEntry, async_add_entities) -> None:
     async_add_entities(
         [
-            CtrlNumber(hass, entry, CTRL_ILLUMINANCE_BLOCK_LUX, "Порог освещённости", DEFAULT_ILLUMINANCE_BLOCK_LUX, 0, 5000, 1, "lx", "mdi:brightness-6"),
-            CtrlNumber(hass, entry, CTRL_MIN_LUX, "Минимум освещённости", DEFAULT_MIN_LUX, 0, 2000, 1, "lx", "mdi:brightness-5"),
-            CtrlNumber(hass, entry, CTRL_MAX_LUX, "Максимум освещённости", DEFAULT_MAX_LUX, 1, 20000, 1, "lx", "mdi:brightness-7"),
-            CtrlNumber(hass, entry, CTRL_MIN_BRIGHTNESS_PCT, "Минимальная яркость", DEFAULT_MIN_BRIGHTNESS_PCT, 1, 100, 1, "%", "mdi:lightbulb-on-10"),
-            CtrlNumber(hass, entry, CTRL_MAX_BRIGHTNESS_PCT, "Максимальная яркость", DEFAULT_MAX_BRIGHTNESS_PCT, 1, 100, 1, "%", "mdi:lightbulb-on"),
-            CtrlNumber(hass, entry, CTRL_OFF_DELAY_MIN, "Задержка выключения", DEFAULT_OFF_DELAY_MIN, 0, 240, 1, "min", "mdi:timer-outline"),
+            CtrlNumber(
+                hass,
+                entry,
+                CTRL_OFF_DELAY_MIN,
+                "Задержка выключения",
+                DEFAULT_OFF_DELAY_MIN,
+                0,
+                240,
+                1,
+                "min",
+                "mdi:timer-outline",
+            ),
         ]
     )
 
