@@ -8,8 +8,9 @@ from homeassistant import config_entries, data_entry_flow
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_BUTTONS_ENABLED,
+    CONF_DEVICE_ENABLED,
     CONF_ENABLED,
-    CONF_ILLUMINANCE_SENSOR,
     CONF_LIGHT,
     CONF_MOTION_SENSORS,
     CONF_NAME,
@@ -19,11 +20,13 @@ from .const import (
     CONF_ON_SENSORS,
     CONF_PULSE_SEC,
     CONF_RESET_OPTIONS,
+    CONF_TARGET_BUTTONS,
     CONF_TARGET_ENTITY,
     CONF_TRIGGER_SENSORS,
     CONF_TRIGGER_TYPE,
-    CONF_USE_ILLUMINANCE,
     CTRL_OFF_DELAY_MIN,
+    DEFAULT_BUTTONS_ENABLED,
+    DEFAULT_DEVICE_ENABLED,
     DEFAULT_ENABLED,
     DEFAULT_NAME,
     DEFAULT_OFF_DELAY_MIN,
@@ -31,7 +34,6 @@ from .const import (
     DEFAULT_ON_ENABLED,
     DEFAULT_PULSE_SEC,
     DEFAULT_TRIGGER_TYPE,
-    DEFAULT_USE_ILLUMINANCE,
     DOMAIN,
     OPENING_DEVICE_CLASSES,
     TRIGGER_TYPE_OPTIONS,
@@ -105,12 +107,15 @@ def normalize_entry_payload(data: dict | None) -> dict:
         CONF_ON_SENSORS: _as_list(on_sensors),
         CONF_OFF_ENABLED: _as_bool(data.get(CONF_OFF_ENABLED), DEFAULT_OFF_ENABLED),
         CONF_OFF_SENSORS: _as_list(data.get(CONF_OFF_SENSORS)),
-        CONF_USE_ILLUMINANCE: _as_bool(
-            data.get(CONF_USE_ILLUMINANCE), DEFAULT_USE_ILLUMINANCE
-        ),
-        CONF_ILLUMINANCE_SENSOR: _clean_entity(data.get(CONF_ILLUMINANCE_SENSOR)),
         CONF_TARGET_ENTITY: _clean_entity(
             data.get(CONF_TARGET_ENTITY) or data.get(CONF_LIGHT)
+        ),
+        CONF_TARGET_BUTTONS: _as_list(data.get(CONF_TARGET_BUTTONS)),
+        CONF_DEVICE_ENABLED: _as_bool(
+            data.get(CONF_DEVICE_ENABLED), DEFAULT_DEVICE_ENABLED
+        ),
+        CONF_BUTTONS_ENABLED: _as_bool(
+            data.get(CONF_BUTTONS_ENABLED), DEFAULT_BUTTONS_ENABLED
         ),
         CTRL_OFF_DELAY_MIN: _as_int(
             data.get(CTRL_OFF_DELAY_MIN), DEFAULT_OFF_DELAY_MIN
@@ -133,8 +138,15 @@ def merge_entry_payload(data: dict | None, options: dict | None) -> dict:
 
 def _validate(data: dict) -> dict[str, str]:
     errors: dict[str, str] = {}
-    if not data.get(CONF_TARGET_ENTITY):
-        errors[CONF_TARGET_ENTITY] = "missing_target_entity"
+    # Должно быть активно хотя бы одно действие: устройство ИЛИ кнопки.
+    device_on = _as_bool(
+        data.get(CONF_DEVICE_ENABLED), DEFAULT_DEVICE_ENABLED
+    ) and bool(data.get(CONF_TARGET_ENTITY))
+    buttons_on = _as_bool(
+        data.get(CONF_BUTTONS_ENABLED), DEFAULT_BUTTONS_ENABLED
+    ) and bool(data.get(CONF_TARGET_BUTTONS))
+    if not device_on and not buttons_on:
+        errors["base"] = "nothing_enabled"
         return errors
     if (
         data.get(CONF_ENABLED, DEFAULT_ENABLED)
@@ -143,10 +155,6 @@ def _validate(data: dict) -> dict[str, str]:
     ):
         errors["base"] = "need_on_sensors"
         return errors
-    if data.get(CONF_USE_ILLUMINANCE, DEFAULT_USE_ILLUMINANCE) and not data.get(
-        CONF_ILLUMINANCE_SENSOR
-    ):
-        errors["base"] = "missing_illuminance_sensor"
     return errors
 
 
@@ -166,9 +174,14 @@ def _multi_binary_sensor_selector() -> selector.EntitySelector:
     )
 
 
-def _single_sensor_selector() -> selector.EntitySelector:
+def _target_buttons_selector() -> selector.EntitySelector:
+    """Мультивыбор кнопок-действий (нажимаются при срабатывании).
+
+    Пример: кнопки «открыть доступ» контроллеров доступа Болид (С2000-2) из
+    интеграции SecurARM Sensor (`button.skif_pku_1_vkhod_otkryt_dostup`).
+    """
     return selector.EntitySelector(
-        selector.EntitySelectorConfig(domain=["sensor"], multiple=False)
+        selector.EntitySelectorConfig(domain=["button"], multiple=True)
     )
 
 
@@ -207,14 +220,6 @@ def build_schema(data: dict, *, include_reset: bool) -> vol.Schema:
             CONF_OFF_SENSORS, default=data[CONF_OFF_SENSORS]
         ): _multi_binary_sensor_selector(),
         vol.Optional(
-            CONF_USE_ILLUMINANCE, default=data[CONF_USE_ILLUMINANCE]
-        ): selector.BooleanSelector(),
-        (
-            vol.Optional(CONF_ILLUMINANCE_SENSOR, default=data[CONF_ILLUMINANCE_SENSOR])
-            if data[CONF_ILLUMINANCE_SENSOR]
-            else vol.Optional(CONF_ILLUMINANCE_SENSOR)
-        ): _single_sensor_selector(),
-        vol.Optional(
             CONF_PULSE_SEC, default=data[CONF_PULSE_SEC]
         ): selector.NumberSelector(
             selector.NumberSelectorConfig(
@@ -228,11 +233,25 @@ def build_schema(data: dict, *, include_reset: bool) -> vol.Schema:
                 min=0, max=240, step=1, mode=selector.NumberSelectorMode.BOX
             )
         ),
+        # Устройство НЕобязательно: у селектора в UI появляется крестик (✕),
+        # очистка убирает ключ -> запись «только кнопки». Дефолт НЕ задаём,
+        # когда устройства нет: селектор не принимает пустое значение.
+        vol.Optional(
+            CONF_DEVICE_ENABLED, default=data[CONF_DEVICE_ENABLED]
+        ): selector.BooleanSelector(),
+        # Крестик очистки присылает null -> vol.Any(None, селектор) принимает и
+        # сериализуется корректно (важно: порядок именно такой).
         (
-            vol.Required(CONF_TARGET_ENTITY, default=data[CONF_TARGET_ENTITY])
+            vol.Optional(CONF_TARGET_ENTITY, default=data[CONF_TARGET_ENTITY])
             if data[CONF_TARGET_ENTITY]
-            else vol.Required(CONF_TARGET_ENTITY)
-        ): _single_target_selector(),
+            else vol.Optional(CONF_TARGET_ENTITY)
+        ): vol.Any(None, _single_target_selector()),
+        vol.Optional(
+            CONF_BUTTONS_ENABLED, default=data[CONF_BUTTONS_ENABLED]
+        ): selector.BooleanSelector(),
+        vol.Optional(
+            CONF_TARGET_BUTTONS, default=data[CONF_TARGET_BUTTONS]
+        ): _target_buttons_selector(),
     }
     if include_reset:
         fields[vol.Optional(CONF_RESET_OPTIONS, default=False)] = (
@@ -242,7 +261,7 @@ def build_schema(data: dict, *, include_reset: bool) -> vol.Schema:
 
 
 class CarFaceConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 8
+    VERSION = 9
 
     async def async_step_user(self, user_input=None):
         errors = {}
