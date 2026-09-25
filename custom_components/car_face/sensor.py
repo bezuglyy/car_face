@@ -10,7 +10,7 @@ from . import get_runner
 from .const import (
     ATTR_LAST_ACTION,
     ATTR_LAST_ACTION_AT,
-    ATTR_LAST_LUX,
+    ATTR_LAST_BUTTONS,
     ATTR_LAST_REASON,
     ATTR_NEXT_OFF_AT,
     ATTR_STATUS,
@@ -56,11 +56,10 @@ SENSORS: tuple[Desc, ...] = (
         entity_category=DIAG_ENTITY_CATEGORY,
     ),
     Desc(
-        key="last_lux",
-        name="Текущая освещённость",
-        icon="mdi:brightness-6",
-        data_key=ATTR_LAST_LUX,
-        native_unit_of_measurement="lx",
+        key="last_buttons",
+        name="Нажатые кнопки",
+        icon="mdi:gesture-tap-button",
+        data_key=ATTR_LAST_BUTTONS,
         entity_category=DIAG_ENTITY_CATEGORY,
     ),
     Desc(
