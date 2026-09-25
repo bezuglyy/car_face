@@ -21,15 +21,15 @@ from .const import (
     ATTR_ACTIVE_ON_SENSORS,
     ATTR_LAST_ACTION,
     ATTR_LAST_ACTION_AT,
-    ATTR_LAST_LUX,
+    ATTR_LAST_BUTTONS,
     ATTR_LAST_REASON,
     ATTR_NEXT_OFF_AT,
     ATTR_STATUS,
+    ATTR_TARGET_BUTTONS,
     ATTR_TARGET_STATE,
-    COLOR_HS_MAP,
-    COLOR_KEEP,
+    CONF_BUTTONS_ENABLED,
+    CONF_DEVICE_ENABLED,
     CONF_ENABLED,
-    CONF_ILLUMINANCE_SENSOR,
     CONF_LIGHT,
     CONF_MOTION_SENSORS,
     CONF_OFF_ENABLED,
@@ -37,16 +37,10 @@ from .const import (
     CONF_ON_ENABLED,
     CONF_ON_SENSORS,
     CONF_PULSE_SEC,
+    CONF_TARGET_BUTTONS,
     CONF_TARGET_ENTITY,
     CONF_TRIGGER_SENSORS,
-    CONF_USE_ILLUMINANCE,
-    CTRL_COLOR,
     CTRL_END_TIME,
-    CTRL_ILLUMINANCE_BLOCK_LUX,
-    CTRL_MAX_BRIGHTNESS_PCT,
-    CTRL_MAX_LUX,
-    CTRL_MIN_BRIGHTNESS_PCT,
-    CTRL_MIN_LUX,
     CTRL_OFF_DELAY_MIN,
     CTRL_START_TIME,
     DEFAULT_CTRL_VALUES,
@@ -126,24 +120,6 @@ def _active_entities(hass: HomeAssistant, entities: list[str]) -> list[str]:
     return active
 
 
-def _calc_brightness_pct(
-    min_lux: float, max_lux: float, min_pct: float, max_pct: float, lux: float
-) -> int:
-    min_pct = max(1.0, min(100.0, min_pct))
-    max_pct = max(1.0, min(100.0, max_pct))
-    if max_pct < min_pct:
-        min_pct, max_pct = max_pct, min_pct
-    if max_lux <= min_lux:
-        return round(max_pct)
-    if lux <= min_lux:
-        return round(max_pct)
-    if lux >= max_lux:
-        return round(min_pct)
-    ratio = (lux - min_lux) / (max_lux - min_lux)
-    value = max_pct - ratio * (max_pct - min_pct)
-    return round(max(min_pct, min(max_pct, value)))
-
-
 @callback
 def get_runner(hass: HomeAssistant, entry_id: str) -> Runner | None:
     return hass.data.get(DOMAIN, {}).get(entry_id)
@@ -199,8 +175,6 @@ def _install_runtime_subscriptions(runner: Runner) -> None:
 
     tracked = set(cfg.get(CONF_ON_SENSORS, []))
     tracked.update(cfg.get(CONF_OFF_SENSORS, []))
-    if cfg.get(CONF_ILLUMINANCE_SENSOR):
-        tracked.add(cfg[CONF_ILLUMINANCE_SENSOR])
     if cfg.get(CONF_TARGET_ENTITY):
         tracked.add(cfg[CONF_TARGET_ENTITY])
 
@@ -227,18 +201,27 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     data = dict(entry.data)
+    options = dict(entry.options or {})
     if entry.version < 8:
+        # v8: единый ключ on_sensors вместо legacy trigger/motion; light -> target_entity.
         if CONF_ON_SENSORS not in data:
             data[CONF_ON_SENSORS] = (
                 data.get(CONF_TRIGGER_SENSORS) or data.get(CONF_MOTION_SENSORS) or []
             )
         if CONF_TARGET_ENTITY not in data and CONF_LIGHT in data:
             data[CONF_TARGET_ENTITY] = data.get(CONF_LIGHT)
+    if entry.version < 9:
+        # v9: из записи убраны поля освещённости/яркости/цвета, добавлены кнопки-действия.
         data = normalize_entry_payload(data)
+        options = normalize_entry_payload(options) if options else {}
         hass.config_entries.async_update_entry(
-            entry, data=data, title=data.get("name", entry.title), version=8
+            entry,
+            data=data,
+            options=options,
+            title=data.get("name", entry.title),
+            version=9,
         )
-        _LOGGER.info("Migrated %s entry %s to version 8", DOMAIN, entry.entry_id)
+        _LOGGER.info("Migrated %s entry %s to version 9", DOMAIN, entry.entry_id)
     return True
 
 
@@ -294,24 +277,31 @@ async def async_set_ctrl_value(
     await async_reconcile(hass, entry_id, reason=f"ctrl:{field}")
 
 
-async def _turn_on_target(
-    runner: Runner, target_entity: str, lux: float, reason: str
-) -> None:
-    target_domain = target_entity.split(".", 1)[0]
-    service_data: dict[str, Any] = {ATTR_ENTITY_ID: target_entity}
-    if target_domain == "light":
-        service_data["brightness_pct"] = _calc_brightness_pct(
-            _safe_float(runner.ctrl.get(CTRL_MIN_LUX), 0.0),
-            _safe_float(runner.ctrl.get(CTRL_MAX_LUX), 200.0),
-            _safe_float(runner.ctrl.get(CTRL_MIN_BRIGHTNESS_PCT), 10.0),
-            _safe_float(runner.ctrl.get(CTRL_MAX_BRIGHTNESS_PCT), 100.0),
-            lux,
+async def _press_buttons(runner: Runner, buttons: list[str], reason: str) -> None:
+    """Нажать кнопки-действия (button.press) — по одному разу на срабатывание."""
+    pressed: list[str] = []
+    for entity_id in buttons:
+        if runner.hass.states.get(entity_id) is None:
+            _LOGGER.debug("Button %s not found, skip", entity_id)
+            continue
+        await runner.hass.services.async_call(
+            "button", "press", {ATTR_ENTITY_ID: entity_id}, blocking=False
         )
-        color_name = runner.ctrl.get(CTRL_COLOR, COLOR_KEEP)
-        if color_name in COLOR_HS_MAP:
-            service_data["hs_color"] = COLOR_HS_MAP[color_name]
+        pressed.append(entity_id)
+    runner.data[ATTR_LAST_BUTTONS] = pressed
+    runner.data[ATTR_LAST_ACTION] = "button_press"
+    runner.data[ATTR_LAST_ACTION_AT] = dt_util.now().isoformat()
+    runner.data[ATTR_LAST_REASON] = reason
+    runner.data[ATTR_STATUS] = "button_pressed"
+
+
+async def _turn_on_target(runner: Runner, target_entity: str, reason: str) -> None:
+    target_domain = target_entity.split(".", 1)[0]
     await runner.hass.services.async_call(
-        target_domain, SERVICE_TURN_ON, service_data, blocking=False
+        target_domain,
+        SERVICE_TURN_ON,
+        {ATTR_ENTITY_ID: target_entity},
+        blocking=False,
     )
     runner.data[ATTR_LAST_ACTION] = "turn_on"
     runner.data[ATTR_LAST_ACTION_AT] = dt_util.now().isoformat()
@@ -363,8 +353,15 @@ async def async_reconcile(
     if runner is None:
         return
     cfg = runner.cfg
-    target_entity = cfg.get(CONF_TARGET_ENTITY)
-    if not target_entity:
+    device_enabled = bool(cfg.get(CONF_DEVICE_ENABLED, True))
+    buttons_enabled = bool(cfg.get(CONF_BUTTONS_ENABLED, True))
+    target_entity = cfg.get(CONF_TARGET_ENTITY) if device_enabled else ""
+    target_buttons = (
+        [item for item in (cfg.get(CONF_TARGET_BUTTONS) or []) if isinstance(item, str)]
+        if buttons_enabled
+        else []
+    )
+    if not target_entity and not target_buttons:
         runner.data[ATTR_STATUS] = "missing_target"
         runner.data[ATTR_LAST_REASON] = f"{reason}:missing_target"
         _emit_update(runner)
@@ -380,38 +377,37 @@ async def async_reconcile(
         if cfg.get(CONF_OFF_ENABLED, DEFAULT_OFF_ENABLED)
         else []
     )
-    illum_entity = cfg.get(CONF_ILLUMINANCE_SENSOR)
-    use_illuminance = bool(cfg.get(CONF_USE_ILLUMINANCE, False))
 
     active_on = _active_entities(hass, on_entities)
     active_off = _active_entities(hass, off_entities)
-
-    lux = 0.0
-    if illum_entity and hass.states.get(illum_entity):
-        lux = _safe_float(hass.states.get(illum_entity).state, 0.0)
 
     start_t = _parse_time(runner.ctrl.get(CTRL_START_TIME), dt_time(0, 0, 0))
     end_t = _parse_time(runner.ctrl.get(CTRL_END_TIME), dt_time(23, 59, 59))
     now_t = dt_util.now().time()
     in_schedule = _within_schedule(start_t, end_t, now_t)
 
-    runner.data[ATTR_LAST_LUX] = lux
     runner.data[ATTR_ACTIVE_ON_SENSORS] = active_on
     runner.data[ATTR_ACTIVE_OFF_SENSORS] = active_off
-    st = hass.states.get(target_entity)
-    runner.data[ATTR_TARGET_STATE] = st.state if st else None
+    runner.data[ATTR_TARGET_BUTTONS] = target_buttons
+    if target_entity:
+        st = hass.states.get(target_entity)
+        runner.data[ATTR_TARGET_STATE] = st.state if st else None
 
     if not cfg.get(CONF_ENABLED, DEFAULT_ENABLED):
-        await _schedule_or_turn_off(
-            runner,
-            target_entity,
-            immediate=True,
-            reason=f"{reason}:integration_disabled",
-        )
+        if target_entity:
+            await _schedule_or_turn_off(
+                runner,
+                target_entity,
+                immediate=True,
+                reason=f"{reason}:integration_disabled",
+            )
+        else:
+            runner.data[ATTR_STATUS] = "disabled"
+            runner.data[ATTR_LAST_REASON] = f"{reason}:integration_disabled"
         _emit_update(runner)
         return
 
-    if target_entity.split(".", 1)[0] not in {"light", "switch"}:
+    if target_entity and target_entity.split(".", 1)[0] not in {"light", "switch"}:
         runner.data[ATTR_STATUS] = "unsupported_target"
         runner.data[ATTR_LAST_REASON] = f"{reason}:unsupported_target"
         _emit_update(runner)
@@ -430,9 +426,32 @@ async def async_reconcile(
         runner.data[ATTR_NEXT_OFF_AT] = None
 
     if not in_schedule:
-        await _schedule_or_turn_off(
-            runner, target_entity, immediate=True, reason=f"{reason}:out_of_schedule"
-        )
+        if target_entity:
+            await _schedule_or_turn_off(
+                runner, target_entity, immediate=True, reason=f"{reason}:out_of_schedule"
+            )
+        else:
+            runner.data[ATTR_STATUS] = "out_of_schedule"
+            runner.data[ATTR_LAST_REASON] = f"{reason}:out_of_schedule"
+        _emit_update(runner)
+        return
+
+    # --- кнопки-действия: нажимаем по фронту срабатывания ---
+    if target_buttons:
+        if not active_on:
+            runner.data["buttons_done"] = False
+        elif not runner.data.get("buttons_done"):
+            await _press_buttons(runner, target_buttons, reason=f"{reason}:on_sensor")
+            runner.data["buttons_done"] = True
+
+    # --- устройство (реле/ворота/свет) ---
+    if not target_entity:
+        # Настроены только кнопки: состояние по активности сенсоров.
+        if active_on:
+            runner.data.setdefault(ATTR_STATUS, "button_pressed")
+        else:
+            runner.data[ATTR_STATUS] = "idle"
+            runner.data[ATTR_LAST_REASON] = f"{reason}:inactive"
         _emit_update(runner)
         return
 
@@ -444,18 +463,11 @@ async def async_reconcile(
         return
 
     if active_on:
-        if use_illuminance and illum_entity:
-            limit = _safe_float(runner.ctrl.get(CTRL_ILLUMINANCE_BLOCK_LUX), 100.0)
-            if lux > limit:
-                runner.data[ATTR_STATUS] = "blocked_by_illuminance"
-                runner.data[ATTR_LAST_REASON] = f"{reason}:lux>{limit}"
-                _emit_update(runner)
-                return
         if _pulse_sec > 0 and runner.data.get("pulse_done"):
             # импульс по этому срабатыванию уже выдан — ждём, пока сенсор отпустят
             _emit_update(runner)
             return
-        await _turn_on_target(runner, target_entity, lux, reason=f"{reason}:on_sensor")
+        await _turn_on_target(runner, target_entity, reason=f"{reason}:on_sensor")
         if _pulse_sec > 0:
             # режим импульса: принудительно выключаем через pulse_sec секунд,
             # независимо от того, что сенсор остаётся активным
